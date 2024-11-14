@@ -1,0 +1,6 @@
+# ninja log v6
+4	662	7532906235162930	CMakeFiles/Gesti_n_de_la_memoria.dir/main.c.obj	ae2ea97c8cf4ac42
+1	285	7532908562686489	build.ninja	73bb83550299c11f
+20	723	7532900169450130	CMakeFiles/Gesti_n_de_la_memoria.dir/child_process.c.obj	a6189b873500212e
+663	742	7532906241759395	Gesti_n_de_la_memoria.exe	b9f6f168ef2dde7e
+4	673	7532909235658585	CMakeFiles/Gesti_n_de_la_memoria.dir/child.c.obj	3b1b097f0151f2bc

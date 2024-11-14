@@ -7,4 +7,5 @@ include_directories(.)
 
 add_executable(Gesti_n_de_la_memoria
     main.c
-    main.h)
+        child.c
+)

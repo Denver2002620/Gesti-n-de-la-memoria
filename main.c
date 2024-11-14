@@ -1,44 +1,73 @@
-include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <windows.h>
+#include <stdio.h>
+#include <string.h>
 
 #define SIZE 4096
 
-// Define necessary constants
-#define PROT_READ 0x1
-#define PROT_WRITE 0x2
-#define MAP_SHARED 0x01
-#define MAP_ANONYMOUS 0x20
-#define MAP_FAILED ((void *)-1)
-
-// Declare mmap function prototype
-void *mmap(void *addr, size_t length, int prot, int flags, int fd, off_t offset);
-int munmap(void *addr, size_t length);
-
 int main() {
-    char *shared_memory = mmap(NULL, SIZE, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
-    if (shared_memory == MAP_FAILED) {
-        perror("mmap");
-        exit(EXIT_FAILURE);
+    // Create a named file mapping object for shared memory
+    HANDLE hMapFile = CreateFileMapping(
+        INVALID_HANDLE_VALUE,    // Use system paging file
+        NULL,                    // Default security attributes
+        PAGE_READWRITE,          // Allow read/write access
+        0,                       // High-order DWORD of size (not used)
+        SIZE,                    // Low-order DWORD of size (4 KB)
+        NULL);                   // Name of the mapping (NULL means unnamed)
+
+    if (hMapFile == NULL) {
+        printf("Error creating file mapping object (%d)\n", GetLastError());
+        return 1;
     }
 
-    pid_t pid = fork();
+    // Map the shared memory into the process's address space
+    char *shared_memory = (char *)MapViewOfFile(
+        hMapFile,                // Handle to the file mapping object
+        FILE_MAP_ALL_ACCESS,     // Read and write access
+        0,                       // High-order DWORD of file offset
+        0,                       // Low-order DWORD of file offset
+        SIZE);                   // Number of bytes to map
 
-    if (pid < 0) {
-        perror("fork");
-        exit(EXIT_FAILURE);
-    } else if (pid == 0) {
-        printf("Child reads: %s\n", shared_memory);
-        munmap(shared_memory, SIZE);
-        exit(EXIT_SUCCESS);
-    } else {
-        strcpy(shared_memory, "Hello, child process!");
-        waitpid(pid, NULL, 0);
-        munmap(shared_memory, SIZE);
+    if (shared_memory == NULL) {
+        printf("Error mapping view of file (%d)\n", GetLastError());
+        CloseHandle(hMapFile);
+        return 1;
     }
+
+    // Create the child process
+    STARTUPINFO si = { sizeof(STARTUPINFO) };
+    PROCESS_INFORMATION pi;
+
+    // Command to execute (this could be a separate executable or command line)
+    // In this example, we are creating a simple process that will read shared memory.
+    if (!CreateProcess(
+        NULL,             // Application name
+        "child.exe",      // Command line to run the child process
+        NULL,             // Process security attributes
+        NULL,             // Thread security attributes
+        FALSE,            // Inherit handles
+        0,                // Creation flags
+        NULL,             // Environment
+        NULL,             // Current directory
+        &si,              // Startup info
+        &pi               // Process information
+    )) {
+        printf("CreateProcess failed (%d)\n", GetLastError());
+        UnmapViewOfFile(shared_memory);
+        CloseHandle(hMapFile);
+        return 1;
+    }
+
+    // Parent process writes to shared memory
+    strcpy(shared_memory, "Hello, child process!");
+
+    // Wait for child process to complete
+    WaitForSingleObject(pi.hProcess, INFINITE);
+
+    // Clean up
+    UnmapViewOfFile(shared_memory);
+    CloseHandle(hMapFile);
+    CloseHandle(pi.hProcess);
+    CloseHandle(pi.hThread);
 
     return 0;
+}
